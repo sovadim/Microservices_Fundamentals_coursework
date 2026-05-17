@@ -1,0 +1,10 @@
+.vscode/
+.idea/
+
+# Gradle
+.gradle/
+build/
+
+# Avoid ignore Gradle wrapper jar and properties
+!gradle-wrapper.jar
+!gradle-wrapper.properties
