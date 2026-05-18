@@ -3,7 +3,6 @@ package com.example.resourceservice.service;
 import com.example.resourceservice.client.SongServiceClient;
 import com.example.resourceservice.dto.DeletedIdsDto;
 import com.example.resourceservice.dto.ResourceIdDto;
-import com.example.resourceservice.dto.SongMetadataDto;
 import com.example.resourceservice.entity.Resource;
 import com.example.resourceservice.exception.InvalidMp3Exception;
 import com.example.resourceservice.exception.InvalidRequestException;
@@ -14,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class ResourceService {
@@ -21,13 +21,16 @@ public class ResourceService {
     private final ResourceRepository resourceRepository;
     private final Mp3MetadataExtractor metadataExtractor;
     private final SongServiceClient songServiceClient;
+    private final S3StorageService s3StorageService;
 
     public ResourceService(ResourceRepository resourceRepository,
                            Mp3MetadataExtractor metadataExtractor,
-                           SongServiceClient songServiceClient) {
+                           SongServiceClient songServiceClient,
+                           S3StorageService s3StorageService) {
         this.resourceRepository = resourceRepository;
         this.metadataExtractor = metadataExtractor;
         this.songServiceClient = songServiceClient;
+        this.s3StorageService = s3StorageService;
     }
 
     @Transactional
@@ -39,14 +42,12 @@ public class ResourceService {
             throw new InvalidMp3Exception("Invalid file format: application/json. Only MP3 files are allowed");
         }
 
-        SongMetadataDto songMetadata = metadataExtractor.extract(data);
-
+        String s3Key = UUID.randomUUID() + ".mp3";
         var resource = new Resource();
-        resource.setData(data);
+        resource.setS3Key(s3Key);
         Resource saved = resourceRepository.save(resource);
 
-        songMetadata.setId(saved.getId());
-        songServiceClient.createSong(songMetadata);
+        s3StorageService.upload(s3Key, data);
 
         return new ResourceIdDto(saved.getId());
     }
@@ -56,9 +57,9 @@ public class ResourceService {
         if (id <= 0) {
             throw new InvalidRequestException("Invalid value '" + id + "' for ID. Must be a positive integer");
         }
-        return resourceRepository.findById(id)
-                .map(Resource::getData)
+        Resource resource = resourceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Resource with ID=" + id + " not found"));
+        return s3StorageService.download(resource.getS3Key());
     }
 
     @Transactional
@@ -67,10 +68,9 @@ public class ResourceService {
             throw new InvalidRequestException("CSV string is too long: received " + idsCsv.length() + " characters, maximum allowed is 200");
         }
         List<Integer> ids = parseIds(idsCsv);
-        List<Integer> existingIds = resourceRepository.findAllById(ids)
-                .stream()
-                .map(Resource::getId)
-                .toList();
+        List<Resource> existing = resourceRepository.findAllById(ids);
+        List<Integer> existingIds = existing.stream().map(Resource::getId).toList();
+        existing.stream().map(Resource::getS3Key).forEach(s3StorageService::delete);
         resourceRepository.deleteAllById(existingIds);
         songServiceClient.deleteSongs(existingIds);
         return new DeletedIdsDto(existingIds);

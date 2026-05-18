@@ -15,8 +15,8 @@ public class Resource {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false)
-    private byte[] data;
+    @Column(name = "s3_key", nullable = false)
+    private String s3Key;
 
     public Integer getId() {
         return id;
@@ -26,11 +26,11 @@ public class Resource {
         this.id = id;
     }
 
-    public byte[] getData() {
-        return data;
+    public String getS3Key() {
+        return s3Key;
     }
 
-    public void setData(byte[] data) {
-        this.data = data;
+    public void setS3Key(String s3Key) {
+        this.s3Key = s3Key;
     }
 }
