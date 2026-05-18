@@ -85,6 +85,15 @@ services:
       rustfs:
         condition: service_healthy
 
+  resource-processor:
+    build:
+      context: .
+      dockerfile: resource-processor/Dockerfile
+    environment:
+      EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
+    depends_on:
+      - eureka-server
+
   song-service:
     build:
       context: .
