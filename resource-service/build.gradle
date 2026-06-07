@@ -30,5 +30,6 @@ dependencies {
     implementation 'org.apache.tika:tika-core:2.9.2'
     implementation 'org.apache.tika:tika-parsers-standard-package:2.9.2'
     implementation 'software.amazon.awssdk:s3:2.44.7'
+    implementation 'org.springframework.boot:spring-boot-starter-activemq'
     runtimeOnly 'org.postgresql:postgresql'
 }

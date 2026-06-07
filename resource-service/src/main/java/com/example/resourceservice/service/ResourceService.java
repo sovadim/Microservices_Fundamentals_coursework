@@ -7,6 +7,7 @@ import com.example.resourceservice.entity.Resource;
 import com.example.resourceservice.exception.InvalidMp3Exception;
 import com.example.resourceservice.exception.InvalidRequestException;
 import com.example.resourceservice.exception.ResourceNotFoundException;
+import com.example.resourceservice.messaging.ResourceUploadProducer;
 import com.example.resourceservice.repository.ResourceRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,15 +23,18 @@ public class ResourceService {
     private final Mp3MetadataExtractor metadataExtractor;
     private final SongServiceClient songServiceClient;
     private final S3StorageService s3StorageService;
+    private final ResourceUploadProducer uploadProducer;
 
     public ResourceService(ResourceRepository resourceRepository,
                            Mp3MetadataExtractor metadataExtractor,
                            SongServiceClient songServiceClient,
-                           S3StorageService s3StorageService) {
+                           S3StorageService s3StorageService,
+                           ResourceUploadProducer uploadProducer) {
         this.resourceRepository = resourceRepository;
         this.metadataExtractor = metadataExtractor;
         this.songServiceClient = songServiceClient;
         this.s3StorageService = s3StorageService;
+        this.uploadProducer = uploadProducer;
     }
 
     @Transactional
@@ -48,6 +52,7 @@ public class ResourceService {
         Resource saved = resourceRepository.save(resource);
 
         s3StorageService.upload(s3Key, data);
+        uploadProducer.sendResourceId(saved.getId());
 
         return new ResourceIdDto(saved.getId());
     }
