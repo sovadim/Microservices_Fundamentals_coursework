@@ -45,6 +45,9 @@ Run services
 * Eureka: http://localhost:8761
 * API Gateway: http://localhost:8080
 
+* S3 Web UI: http://localhost:9001
+* Active MQ Web UI: http://localhost:8161
+
 ## API Reference
 
 ### Resource Service (`/resources`)
