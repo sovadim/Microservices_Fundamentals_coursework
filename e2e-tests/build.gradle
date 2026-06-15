@@ -1,0 +1,28 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'io.cucumber:cucumber-java:7.20.1'
+    testImplementation 'io.cucumber:cucumber-junit-platform-engine:7.20.1'
+    testImplementation 'io.rest-assured:rest-assured:5.5.0'
+    testImplementation 'org.awaitility:awaitility:4.2.2'
+    testImplementation 'org.assertj:assertj-core:3.27.3'
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty 'e2e.base.url', System.getProperty('e2e.base.url', 'http://localhost:8080')
+}
