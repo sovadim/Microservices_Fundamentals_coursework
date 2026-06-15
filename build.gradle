@@ -2,3 +2,9 @@ plugins {
     id 'org.springframework.boot' version '3.4.5' apply false
     id 'io.spring.dependency-management' version '1.1.7' apply false
 }
+
+tasks.register('e2eTest') {
+    dependsOn ':e2e-tests:test'
+    group = 'verification'
+    description = 'Runs E2E tests against the live Docker Compose stack (requires: docker compose up)'
+}

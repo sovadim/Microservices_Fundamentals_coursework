@@ -28,6 +28,9 @@ public class Mp3MetadataExtractor {
     }
 
     public SongMetadataDto extract(byte[] data) {
+        if (!isValidMp3(data)) {
+            throw new InvalidMp3Exception("Failed to extract MP3 metadata");
+        }
         try {
             var parser = new AutoDetectParser();
             var handler = new BodyContentHandler(-1);
