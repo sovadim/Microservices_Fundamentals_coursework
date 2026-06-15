@@ -1,0 +1,19 @@
+description: "POST /songs with valid data returns 200 with id"
+request:
+  method: POST
+  url: /songs
+  headers:
+    Content-Type: application/json
+  body:
+    id: 42
+    name: "We are the champions"
+    artist: "Queen"
+    album: "News of the world"
+    duration: "02:59"
+    year: "1977"
+response:
+  status: 200
+  headers:
+    Content-Type: application/json
+  body:
+    id: 42

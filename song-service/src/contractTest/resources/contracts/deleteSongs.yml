@@ -1,0 +1,11 @@
+description: "DELETE /songs?id=CSV returns only the ids that existed"
+request:
+  method: DELETE
+  url: "/songs?id=5,101"
+response:
+  status: 200
+  headers:
+    Content-Type: application/json
+  body:
+    ids:
+      - 5

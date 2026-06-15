@@ -1,0 +1,20 @@
+description: "POST /songs with already-existing id returns 409"
+request:
+  method: POST
+  url: /songs
+  headers:
+    Content-Type: application/json
+  body:
+    id: 99
+    name: "Duplicate"
+    artist: "A"
+    album: "B"
+    duration: "02:59"
+    year: "1977"
+response:
+  status: 409
+  headers:
+    Content-Type: application/json
+  body:
+    errorCode: "409"
+    errorMessage: "Metadata for resource ID=99 already exists"

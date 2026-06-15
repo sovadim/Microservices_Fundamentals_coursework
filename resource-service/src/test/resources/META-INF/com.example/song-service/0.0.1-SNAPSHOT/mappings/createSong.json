@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/songs"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": "{\"id\": 42}"
+  }
+}

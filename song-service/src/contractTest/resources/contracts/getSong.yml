@@ -1,0 +1,15 @@
+description: "GET /songs/{id} returns 200 with all fields"
+request:
+  method: GET
+  url: /songs/5
+response:
+  status: 200
+  headers:
+    Content-Type: application/json
+  body:
+    id: 5
+    name: "We are the champions"
+    artist: "Queen"
+    album: "News of the world"
+    duration: "02:59"
+    year: "1977"
