@@ -30,4 +30,5 @@ dependencies {
     implementation 'org.apache.tika:tika-parsers-standard-package:2.9.2'
     implementation 'org.springframework.retry:spring-retry'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
