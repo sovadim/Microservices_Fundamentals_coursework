@@ -84,6 +84,27 @@ services:
       retries: 10
       start_period: 60s
 
+  config-server:
+    build:
+      context: .
+      dockerfile: config-server/Dockerfile
+    ports:
+      - "8888:8888"
+    environment:
+      EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
+      CONFIG_REPO_PATH: file:///config-repo
+    volumes:
+      - ./config-repo:/config-repo:ro
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8888/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
   resource-service:
     build:
       context: .
@@ -91,6 +112,7 @@ services:
     ports:
       - "8081:8081"
     environment:
+      CONFIG_SERVER_URL: ${CONFIG_SERVER_URL}
       SPRING_DATASOURCE_URL: ${RESOURCE_DB_URL}
       SPRING_DATASOURCE_USERNAME: ${RESOURCE_DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${RESOURCE_DB_PASSWORD}
@@ -106,6 +128,8 @@ services:
       resource-db:
         condition: service_healthy
       eureka-server:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       rustfs:
         condition: service_healthy
