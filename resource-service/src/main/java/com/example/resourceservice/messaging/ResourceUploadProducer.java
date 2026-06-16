@@ -1,5 +1,6 @@
 package com.example.resourceservice.messaging;
 
+import io.micrometer.tracing.Tracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,11 +18,14 @@ public class ResourceUploadProducer {
 
     private final JmsTemplate jmsTemplate;
     private final String queueName;
+    private final Tracer tracer;
 
     public ResourceUploadProducer(JmsTemplate jmsTemplate,
-                                  @Value("${resource.upload.queue}") String queueName) {
+                                  @Value("${resource.upload.queue}") String queueName,
+                                  Tracer tracer) {
         this.jmsTemplate = jmsTemplate;
         this.queueName = queueName;
+        this.tracer = tracer;
     }
 
     @Retryable(
@@ -29,7 +33,14 @@ public class ResourceUploadProducer {
             maxAttempts = 3,
             backoff = @Backoff(delay = 1000, multiplier = 2.0))
     public void sendResourceId(Integer resourceId) {
-        jmsTemplate.convertAndSend(queueName, resourceId.toString());
+        jmsTemplate.convertAndSend(queueName, resourceId.toString(), message -> {
+            var span = tracer.currentSpan();
+            if (span != null) {
+                message.setStringProperty("traceId", span.context().traceId());
+                message.setStringProperty("spanId", span.context().spanId());
+            }
+            return message;
+        });
     }
 
     @Recover

@@ -3,8 +3,11 @@ package com.example.resourceprocessor.messaging;
 import com.example.resourceprocessor.client.ResourceServiceClient;
 import com.example.resourceprocessor.client.SongServiceClient;
 import com.example.resourceprocessor.service.Mp3MetadataExtractor;
+import jakarta.jms.JMSException;
+import jakarta.jms.TextMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.stereotype.Component;
 
@@ -29,18 +32,28 @@ public class ResourceUploadConsumer {
     }
 
     @JmsListener(destination = "${resource.upload.queue}")
-    public void onMessage(String message) {
-        Integer resourceId = Integer.parseInt(message.trim());
-        log.info("Received upload event for resource id: {}", resourceId);
+    public void onMessage(TextMessage textMessage) throws JMSException {
+        String traceId = textMessage.getStringProperty("traceId");
+        if (traceId != null) {
+            MDC.put("traceId", traceId);
+        }
 
-        byte[] data = resourceServiceClient.getResource(resourceId);
-        var metadata = metadataExtractor.extract(data);
-        metadata.setId(resourceId);
+        try {
+            String message = textMessage.getText();
+            Integer resourceId = Integer.parseInt(message.trim());
+            log.info("Received upload event for resource id: {}", resourceId);
 
-        songServiceClient.createSong(metadata);
-        log.info("Song metadata saved for resource id: {}", resourceId);
+            byte[] data = resourceServiceClient.getResource(resourceId);
+            var metadata = metadataExtractor.extract(data);
+            metadata.setId(resourceId);
 
-        resourceProcessedProducer.sendResourceId(resourceId);
-        log.info("Sent processed event for resource id: {}", resourceId);
+            songServiceClient.createSong(metadata);
+            log.info("Song metadata saved for resource id: {}", resourceId);
+
+            resourceProcessedProducer.sendResourceId(resourceId);
+            log.info("Sent processed event for resource id: {}", resourceId);
+        } finally {
+            MDC.remove("traceId");
+        }
     }
 }
