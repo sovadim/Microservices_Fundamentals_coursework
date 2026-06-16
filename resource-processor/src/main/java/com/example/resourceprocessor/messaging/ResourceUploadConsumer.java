@@ -16,13 +16,16 @@ public class ResourceUploadConsumer {
     private final ResourceServiceClient resourceServiceClient;
     private final SongServiceClient songServiceClient;
     private final Mp3MetadataExtractor metadataExtractor;
+    private final ResourceProcessedProducer resourceProcessedProducer;
 
     public ResourceUploadConsumer(ResourceServiceClient resourceServiceClient,
                                   SongServiceClient songServiceClient,
-                                  Mp3MetadataExtractor metadataExtractor) {
+                                  Mp3MetadataExtractor metadataExtractor,
+                                  ResourceProcessedProducer resourceProcessedProducer) {
         this.resourceServiceClient = resourceServiceClient;
         this.songServiceClient = songServiceClient;
         this.metadataExtractor = metadataExtractor;
+        this.resourceProcessedProducer = resourceProcessedProducer;
     }
 
     @JmsListener(destination = "${resource.upload.queue}")
@@ -36,5 +39,8 @@ public class ResourceUploadConsumer {
 
         songServiceClient.createSong(metadata);
         log.info("Song metadata saved for resource id: {}", resourceId);
+
+        resourceProcessedProducer.sendResourceId(resourceId);
+        log.info("Sent processed event for resource id: {}", resourceId);
     }
 }
