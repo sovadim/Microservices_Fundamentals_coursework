@@ -1,8 +1,10 @@
 package com.example.resourceservice.service;
 
 import com.example.resourceservice.client.SongServiceClient;
+import com.example.resourceservice.client.StorageServiceClient;
 import com.example.resourceservice.dto.DeletedIdsDto;
 import com.example.resourceservice.dto.ResourceIdDto;
+import com.example.resourceservice.dto.StorageDto;
 import com.example.resourceservice.entity.Resource;
 import com.example.resourceservice.exception.InvalidMp3Exception;
 import com.example.resourceservice.exception.InvalidRequestException;
@@ -22,17 +24,20 @@ public class ResourceService {
     private final ResourceRepository resourceRepository;
     private final Mp3MetadataExtractor metadataExtractor;
     private final SongServiceClient songServiceClient;
+    private final StorageServiceClient storageServiceClient;
     private final S3StorageService s3StorageService;
     private final ResourceUploadProducer uploadProducer;
 
     public ResourceService(ResourceRepository resourceRepository,
                            Mp3MetadataExtractor metadataExtractor,
                            SongServiceClient songServiceClient,
+                           StorageServiceClient storageServiceClient,
                            S3StorageService s3StorageService,
                            ResourceUploadProducer uploadProducer) {
         this.resourceRepository = resourceRepository;
         this.metadataExtractor = metadataExtractor;
         this.songServiceClient = songServiceClient;
+        this.storageServiceClient = storageServiceClient;
         this.s3StorageService = s3StorageService;
         this.uploadProducer = uploadProducer;
     }
@@ -46,12 +51,18 @@ public class ResourceService {
             throw new InvalidMp3Exception("Invalid file format: application/json. Only MP3 files are allowed");
         }
 
-        String s3Key = UUID.randomUUID() + ".mp3";
+        StorageDto staging = storageServiceClient.getStorageByType("STAGING");
+        String uuid = UUID.randomUUID() + ".mp3";
+        String s3Key = buildKey(staging.getPath(), uuid);
+
         var resource = new Resource();
         resource.setS3Key(s3Key);
+        resource.setStorageType("STAGING");
+        resource.setStorageId(staging.getId());
+        resource.setStorageBucket(staging.getBucket());
         Resource saved = resourceRepository.save(resource);
 
-        s3StorageService.upload(s3Key, data);
+        s3StorageService.upload(staging.getBucket(), s3Key, data);
         uploadProducer.sendResourceId(saved.getId());
 
         return new ResourceIdDto(saved.getId());
@@ -64,7 +75,7 @@ public class ResourceService {
         }
         Resource resource = resourceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Resource with ID=" + id + " not found"));
-        return s3StorageService.download(resource.getS3Key());
+        return s3StorageService.download(resource.getStorageBucket(), resource.getS3Key());
     }
 
     @Transactional
@@ -75,10 +86,40 @@ public class ResourceService {
         List<Integer> ids = parseIds(idsCsv);
         List<Resource> existing = resourceRepository.findAllById(ids);
         List<Integer> existingIds = existing.stream().map(Resource::getId).toList();
-        existing.stream().map(Resource::getS3Key).forEach(s3StorageService::delete);
+        existing.forEach(r -> s3StorageService.delete(r.getStorageBucket(), r.getS3Key()));
         resourceRepository.deleteAllById(existingIds);
         songServiceClient.deleteSongs(existingIds);
         return new DeletedIdsDto(existingIds);
+    }
+
+    @Transactional
+    public void moveToPermanent(Integer resourceId) {
+        Resource resource = resourceRepository.findById(resourceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource with ID=" + resourceId + " not found"));
+        if ("PERMANENT".equals(resource.getStorageType())) {
+            return;
+        }
+        StorageDto permanent = storageServiceClient.getStorageByType("PERMANENT");
+        String filename = extractFilename(resource.getS3Key());
+        String newKey = buildKey(permanent.getPath(), filename);
+
+        s3StorageService.copy(resource.getStorageBucket(), resource.getS3Key(), permanent.getBucket(), newKey);
+        s3StorageService.delete(resource.getStorageBucket(), resource.getS3Key());
+
+        resource.setStorageBucket(permanent.getBucket());
+        resource.setS3Key(newKey);
+        resource.setStorageType("PERMANENT");
+        resource.setStorageId(permanent.getId());
+    }
+
+    private String buildKey(String path, String filename) {
+        String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
+        return normalizedPath.isEmpty() ? filename : normalizedPath + "/" + filename;
+    }
+
+    private String extractFilename(String key) {
+        int slashIdx = key.lastIndexOf('/');
+        return slashIdx >= 0 ? key.substring(slashIdx + 1) : key;
     }
 
     private List<Integer> parseIds(String csv) {

@@ -41,6 +41,12 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(e.getMessage(), "500"));
     }
 
+    @ExceptionHandler(StorageServiceException.class)
+    public ResponseEntity<ErrorResponse> handleStorageService(StorageServiceException e) {
+        return ResponseEntity.internalServerError()
+                .body(new ErrorResponse(e.getMessage(), "500"));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception e) {
         return ResponseEntity.internalServerError()
