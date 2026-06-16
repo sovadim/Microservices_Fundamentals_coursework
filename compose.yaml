@@ -241,6 +241,24 @@ services:
       retries: 10
       start_period: 60s
 
+  authorization-server:
+    build:
+      context: .
+      dockerfile: authorization-server/Dockerfile
+    ports:
+      - "9000:9000"
+    environment:
+      EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
   api-gateway:
     build:
       context: .
@@ -250,12 +268,15 @@ services:
     environment:
       EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
       GRAFANA_URL: http://grafana:3000
+      AUTH_SERVER_URI: http://authorization-server:9000
     depends_on:
       eureka-server:
         condition: service_healthy
       resource-service:
         condition: service_healthy
       song-service:
+        condition: service_healthy
+      authorization-server:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP || exit 1"]
