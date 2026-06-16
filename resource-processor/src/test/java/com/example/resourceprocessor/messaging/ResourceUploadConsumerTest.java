@@ -4,6 +4,8 @@ import com.example.resourceprocessor.client.ResourceServiceClient;
 import com.example.resourceprocessor.client.SongServiceClient;
 import com.example.resourceprocessor.dto.SongMetadataDto;
 import com.example.resourceprocessor.service.Mp3MetadataExtractor;
+import jakarta.jms.JMSException;
+import jakarta.jms.TextMessage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -27,20 +29,24 @@ class ResourceUploadConsumerTest {
     private SongServiceClient songServiceClient;
     @Mock
     private Mp3MetadataExtractor metadataExtractor;
+    @Mock
+    private ResourceProcessedProducer resourceProcessedProducer;
+    @Mock
+    private TextMessage textMessage;
 
     @InjectMocks
     private ResourceUploadConsumer consumer;
 
     @Test
-    void onMessage_validResourceId_fetchesExtractsAndCreatesSong() {
+    void onMessage_validResourceId_fetchesExtractsAndCreatesSong() throws JMSException {
         byte[] mp3 = new byte[]{1, 2, 3};
         SongMetadataDto extracted = buildMetadata();
+        when(textMessage.getText()).thenReturn("42");
         when(resourceServiceClient.getResource(42)).thenReturn(mp3);
         when(metadataExtractor.extract(mp3)).thenReturn(extracted);
 
-        consumer.onMessage("42");
+        consumer.onMessage(textMessage);
 
-        // verify the resource id is set on the metadata before posting
         ArgumentCaptor<SongMetadataDto> captor = ArgumentCaptor.forClass(SongMetadataDto.class);
         verify(songServiceClient).createSong(captor.capture());
         assertThat(captor.getValue().getId()).isEqualTo(42);
@@ -48,23 +54,25 @@ class ResourceUploadConsumerTest {
     }
 
     @Test
-    void onMessage_messageWithWhitespace_parsesIdCorrectly() {
+    void onMessage_messageWithWhitespace_parsesIdCorrectly() throws JMSException {
         byte[] mp3 = new byte[]{1, 2, 3};
         SongMetadataDto extracted = buildMetadata();
+        when(textMessage.getText()).thenReturn("  1  ");
         when(resourceServiceClient.getResource(1)).thenReturn(mp3);
         when(metadataExtractor.extract(mp3)).thenReturn(extracted);
 
-        consumer.onMessage("  1  ");
+        consumer.onMessage(textMessage);
 
         verify(resourceServiceClient).getResource(1);
     }
 
     @Test
-    void onMessage_resourceServiceThrows_propagatesException() {
+    void onMessage_resourceServiceThrows_propagatesException() throws JMSException {
+        when(textMessage.getText()).thenReturn("99");
         when(resourceServiceClient.getResource(99)).thenThrow(
                 new RuntimeException("Resource service unavailable for resource id=99"));
 
-        assertThatThrownBy(() -> consumer.onMessage("99"))
+        assertThatThrownBy(() -> consumer.onMessage(textMessage))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("resource id=99");
 
@@ -73,12 +81,13 @@ class ResourceUploadConsumerTest {
     }
 
     @Test
-    void onMessage_extractionThrows_propagatesException() {
+    void onMessage_extractionThrows_propagatesException() throws JMSException {
         byte[] mp3 = new byte[]{1, 2, 3};
+        when(textMessage.getText()).thenReturn("5");
         when(resourceServiceClient.getResource(5)).thenReturn(mp3);
         when(metadataExtractor.extract(mp3)).thenThrow(new RuntimeException("Failed to extract MP3 metadata"));
 
-        assertThatThrownBy(() -> consumer.onMessage("5"))
+        assertThatThrownBy(() -> consumer.onMessage(textMessage))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Failed to extract MP3 metadata");
 

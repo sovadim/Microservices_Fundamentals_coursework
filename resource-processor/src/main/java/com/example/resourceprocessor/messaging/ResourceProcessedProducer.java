@@ -2,6 +2,7 @@ package com.example.resourceprocessor.messaging;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.JmsException;
 import org.springframework.jms.core.JmsTemplate;
@@ -29,7 +30,13 @@ public class ResourceProcessedProducer {
             maxAttempts = 3,
             backoff = @Backoff(delay = 1000, multiplier = 2.0))
     public void sendResourceId(Integer resourceId) {
-        jmsTemplate.convertAndSend(queueName, resourceId.toString());
+        jmsTemplate.convertAndSend(queueName, resourceId.toString(), message -> {
+            String traceId = MDC.get("traceId");
+            if (traceId != null) {
+                message.setStringProperty("traceId", traceId);
+            }
+            return message;
+        });
     }
 
     @Recover
