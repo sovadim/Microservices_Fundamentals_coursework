@@ -9,6 +9,29 @@ services:
       - ./init-scripts/resource-db:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  song-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${SONG_DB_NAME}
+      POSTGRES_USER: ${SONG_DB_USER}
+      POSTGRES_PASSWORD: ${SONG_DB_PASSWORD}
+    volumes:
+      - ./init-scripts/song-db:/docker-entrypoint-initdb.d
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   rustfs:
     image: rustfs/rustfs:latest
@@ -31,37 +54,6 @@ services:
       retries: 10
       start_period: 15s
 
-  song-db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_DB: ${SONG_DB_NAME}
-      POSTGRES_USER: ${SONG_DB_USER}
-      POSTGRES_PASSWORD: ${SONG_DB_PASSWORD}
-    volumes:
-      - ./init-scripts/song-db:/docker-entrypoint-initdb.d
-    ports:
-      - "5433:5432"
-
-  eureka-server:
-    build:
-      context: .
-      dockerfile: eureka-server/Dockerfile
-    ports:
-      - "8761:8761"
-
-  api-gateway:
-    build:
-      context: .
-      dockerfile: api-gateway/Dockerfile
-    ports:
-      - "8080:8080"
-    environment:
-      EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
-    depends_on:
-      - eureka-server
-      - resource-service
-      - song-service
-
   activemq:
     image: apache/activemq-artemis:latest
     ports:
@@ -78,6 +70,19 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+  eureka-server:
+    build:
+      context: .
+      dockerfile: eureka-server/Dockerfile
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
 
   resource-service:
     build:
@@ -99,28 +104,19 @@ services:
       SPRING_ACTIVEMQ_PASSWORD: ${ACTIVEMQ_PASSWORD}
     depends_on:
       resource-db:
-        condition: service_started
+        condition: service_healthy
       eureka-server:
-        condition: service_started
+        condition: service_healthy
       rustfs:
         condition: service_healthy
       activemq:
         condition: service_healthy
-
-  resource-processor:
-    build:
-      context: .
-      dockerfile: resource-processor/Dockerfile
-    environment:
-      EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
-      SPRING_ACTIVEMQ_BROKER_URL: tcp://activemq:61616
-      SPRING_ACTIVEMQ_USER: ${ACTIVEMQ_USERNAME}
-      SPRING_ACTIVEMQ_PASSWORD: ${ACTIVEMQ_PASSWORD}
-    depends_on:
-      eureka-server:
-        condition: service_started
-      activemq:
-        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
 
   song-service:
     build:
@@ -138,8 +134,59 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SONG_DB_PASSWORD}
       EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
     depends_on:
-      - song-db
-      - eureka-server
+      song-db:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  resource-processor:
+    build:
+      context: .
+      dockerfile: resource-processor/Dockerfile
+    environment:
+      EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
+      SPRING_ACTIVEMQ_BROKER_URL: tcp://activemq:61616
+      SPRING_ACTIVEMQ_USER: ${ACTIVEMQ_USERNAME}
+      SPRING_ACTIVEMQ_PASSWORD: ${ACTIVEMQ_PASSWORD}
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      activemq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      resource-service:
+        condition: service_healthy
+      song-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
 
 volumes:
   rustfs_data:
