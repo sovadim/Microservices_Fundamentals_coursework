@@ -24,6 +24,20 @@ Stop:
 docker compose down
 ```
 
+### With Podman
+
+Run:
+```bash
+podman machine set --memory 4096
+podman machine start
+podman-compose up -d --build
+```
+
+Stop:
+```bash
+podman machine stop
+```
+
 ### With gradle
 
 Run databases in docker:

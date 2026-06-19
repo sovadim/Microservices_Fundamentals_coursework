@@ -54,8 +54,8 @@ services:
     image: rustfs/rustfs:latest
     container_name: rustfs
     ports:
-      - "9000:9000" # API
-      - "9001:9001" # Console
+      - "19000:9000" # API
+      - "19001:9001" # Console
     environment:
       RUSTFS_VOLUMES: /data
       RUSTFS_ADDRESS: 0.0.0.0:9000
@@ -311,21 +311,19 @@ services:
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      disable: true
 
   promtail:
     image: grafana/promtail:latest
+    security_opt:
+      - label=disable
     volumes:
       - ./promtail/promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       loki:
-        condition: service_healthy
+        condition: service_started
 
   grafana:
     image: grafana/grafana:latest
@@ -344,7 +342,7 @@ services:
       prometheus:
         condition: service_healthy
       loki:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 10s
