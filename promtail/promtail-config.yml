@@ -23,8 +23,8 @@ scrape_configs:
         refresh_interval: 5s
     relabel_configs:
       - source_labels: ['__meta_docker_container_name']
-        regex: '/(.*)'
+        regex: '/.*_(.+?)_\d+'
         target_label: 'container'
       - source_labels: ['__meta_docker_container_name']
-        regex: '/(.*)'
+        regex: '/.*_(.+?)_\d+'
         target_label: 'job'

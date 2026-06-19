@@ -334,6 +334,7 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_SERVER_ROOT_URL: http://localhost:8080/grafana/
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_LIVE_ALLOWED_ORIGINS: "http://localhost:8080"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
