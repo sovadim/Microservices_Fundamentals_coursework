@@ -25,4 +25,5 @@ dependencies {
 test {
     useJUnitPlatform()
     systemProperty 'e2e.base.url', System.getProperty('e2e.base.url', 'http://localhost:8080')
+    systemProperty 'e2e.auth.url', System.getProperty('e2e.auth.url', 'http://localhost:9000')
 }

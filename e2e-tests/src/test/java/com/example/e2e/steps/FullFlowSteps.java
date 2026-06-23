@@ -18,9 +18,25 @@ import static org.awaitility.Awaitility.await;
 
 public class FullFlowSteps {
 
+    private static final String TOKEN = fetchAdminToken();
+
     private static final RequestSpecification SPEC = new RequestSpecBuilder()
             .setBaseUri(System.getProperty("e2e.base.url", "http://localhost:8080"))
+            .addHeader("Authorization", "Bearer " + TOKEN)
             .build();
+
+    private static String fetchAdminToken() {
+        String authUrl = System.getProperty("e2e.auth.url", "http://localhost:9000");
+        return given()
+                .baseUri(authUrl)
+                .auth().preemptive().basic("admin-client", "admin-secret")
+                .contentType("application/x-www-form-urlencoded")
+                .formParam("grant_type", "client_credentials")
+                .formParam("scope", "ROLE_ADMIN")
+                .post("/oauth2/token")
+                .jsonPath()
+                .getString("access_token");
+    }
 
     private byte[] mp3Bytes;
     private int resourceId;
